@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Entrar{% endblock %}
+{% block content %}
+<section class="login-layout" aria-labelledby="login-title">
+  <div class="login-intro">
+    <span class="eyebrow">LPZ MONTAGENS INDUSTRIAIS</span>
+    <h1 id="login-title">Jornada em dia.<br><span>Trabalho em movimento.</span></h1>
+    <p>Acesse o controle de jornada da sua equipe.</p>
+    <div class="intro-rule"><span></span><span></span><span></span></div>
+  </div>
+  <div class="login-panel">
+    <div class="section-kicker">ACESSO SEGURO</div>
+    <h2>Entrar na plataforma</h2>
+    {% if form.errors %}<p class="form-error" role="alert">Usuário ou senha incorretos. Confira os dados e tente novamente.</p>{% endif %}
+    <form method="post" class="stack-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <label for="id_username">Usuário</label>
+      <input id="id_username" name="username" type="text" autocomplete="username" required autofocus>
+      <label for="id_password">Senha</label>
+      <input id="id_password" name="password" type="password" autocomplete="current-password" required>
+      <button class="button button-primary button-wide" type="submit">Entrar <span aria-hidden="true">→</span></button>
+    </form>
+    <p class="login-note">Acesso fornecido pelo administrador da empresa.</p>
+  </div>
+</section>
+{% endblock %}

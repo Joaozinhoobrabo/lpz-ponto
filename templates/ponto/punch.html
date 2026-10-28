@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Registrar ponto{% endblock %}
+{% block content %}
+<section class="punch-header">
+  <div><span class="eyebrow">REGISTRO DE JORNADA</span><h1>Olá, {{ employee.full_name|truncatewords:2 }}.</h1><p>{{ now|date:"l, d \d\e F \d\e Y" }}</p></div>
+  <div class="clock-panel" aria-label="Relógio do dispositivo, não usado como horário oficial"><span>HORA LOCAL DO DISPOSITIVO</span><time id="live-clock">{{ now|date:"H:i:s" }}</time></div>
+</section>
+{% if error_message %}<p class="form-error" role="alert">{{ error_message }}</p>{% endif %}
+<section class="punch-layout" aria-labelledby="journey-title">
+  <div class="punch-main">
+    <div class="journey-state state-{{ status_key }}"><span class="state-indicator" aria-hidden="true"></span><div><span class="section-kicker">STATUS DA JORNADA</span><h2 id="journey-title">{{ status_label }}</h2></div><span class="date-stamp">{{ now|date:"d/m/Y" }}</span></div>
+    <div class="punch-actions">
+      <h3>Registrar marcação</h3>
+      <p class="muted">A hora oficial é registrada pelo servidor no momento da confirmação.</p>
+      <div class="action-grid">
+        {% for kind, label in allowed %}
+        <form method="post" class="punch-form" data-punch-form data-require-location="{{ require_geolocation|yesno:'true,false' }}">
+          {% csrf_token %}<input type="hidden" name="kind" value="{{ kind }}">
+          <input type="hidden" name="latitude"><input type="hidden" name="longitude"><input type="hidden" name="accuracy_meters">
+          <input type="hidden" name="location_status" value="not_requested"><input type="hidden" name="location_reason">
+          <button class="button punch-button{% if kind == 'entry' or kind == 'exit' %} button-primary{% else %} button-secondary{% endif %}" type="submit">
+            <span class="button-symbol" aria-hidden="true">{% if kind == 'entry' %}↘{% elif kind == 'break_start' %}Ⅱ{% elif kind == 'break_end' %}▶{% else %}↗{% endif %}</span>
+            <span>{{ label }}</span><span class="button-arrow" aria-hidden="true">→</span>
+          </button>
+        </form>
+        {% empty %}<div class="finished-state"><strong>Jornada finalizada</strong><p>Suas marcações de hoje foram concluídas.</p></div>{% endfor %}
+      </div>
+      <p class="location-note" id="location-message" aria-live="polite">A localização aproximada será solicitada somente ao registrar uma marcação. Ela ajuda a contextualizar o ponto em campo e não é acompanhada continuamente. Se não compartilhar, o sistema guardará apenas o motivo técnico quando disponível.</p>
+      <p class="form-error" id="location-error" role="alert" hidden></p>
+    </div>
+  </div>
+  <aside class="punch-summary" aria-labelledby="summary-title"><div class="section-kicker">RESUMO DE HOJE</div><h2 id="summary-title">{{ duration_display }}<small>horas trabalhadas</small></h2><div class="event-list"><h3>Marcações</h3>
+    {% for event in events %}<div class="event-row"><span class="event-type">{{ event.get_kind_display }}</span><time>{{ event.recorded_at|date:"H:i" }}</time></div>{% empty %}<p class="muted">Nenhuma marcação registrada.</p>{% endfor %}
+  </div></aside>
+</section>
+{% endblock %}

@@ -1,0 +1,27 @@
+databases:
+  - name: lpz-ponto-db
+    databaseName: lpz_ponto
+    user: lpz_ponto
+    plan: free
+
+services:
+  - type: web
+    name: lpz-ponto
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    healthCheckPath: /login/
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lpz-ponto-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: TIME_ZONE
+        value: America/Sao_Paulo
+      - key: PUNCH_REQUIRE_GEOLOCATION
+        value: "False"

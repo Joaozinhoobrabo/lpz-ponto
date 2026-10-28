@@ -1,0 +1,38 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}LPZ Ponto{% endblock %} | LPZ Montagens Industriais</title>
+  <link rel="stylesheet" href="{% static 'ponto/app.css' %}">
+</head>
+<body>
+  <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+  {% if user.is_authenticated %}
+  <header class="topbar">
+    <a class="brand" href="{% url 'home' %}" aria-label="LPZ Ponto, início">
+      <span class="brand-mark" aria-hidden="true">L</span>
+      <span><strong>LPZ</strong><small>CONTROLE DE JORNADA</small></span>
+    </a>
+    <nav class="main-nav" aria-label="Navegação principal">
+      {% if user.role != 'employee' or user.is_superuser %}<a href="{% url 'home' %}">Visão geral</a><a href="{% url 'employee_list' %}">Funcionários</a>{% endif %}
+      {% if user.role == 'employee' %}<a href="{% url 'punch' %}">Registrar ponto</a>{% endif %}
+      <a href="{% url 'history' %}">Histórico</a>
+      {% if user.is_staff %}<a href="{% url 'admin:index' %}">Administração</a>{% endif %}
+    </nav>
+    <div class="user-menu">
+      <span class="user-name">{{ user.get_full_name|default:user.username }}<small>{{ user.get_role_display }}</small></span>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="button button-quiet" type="submit">Sair</button></form>
+    </div>
+  </header>
+  {% endif %}
+  <main id="conteudo" class="page-shell{% if not user.is_authenticated %} page-shell-auth{% endif %}">
+    {% if messages %}<div class="messages" aria-live="polite">{% for message in messages %}<p class="message message-{{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer"><span>LPZ Montagens Industriais</span><span>Gestão de jornada · {{ now|date:"Y" }}</span></footer>
+  <script src="{% static 'ponto/app.js' %}" defer></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Visão geral{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div><span class="eyebrow">PAINEL DE OPERAÇÕES · {{ today|date:"d/m/Y" }}</span><h1>Visão geral</h1><p>Acompanhe a jornada da equipe em um só lugar.</p></div>
+  <a class="button button-primary" href="{% url 'history' %}">Consultar marcações <span aria-hidden="true">→</span></a>
+</section>
+<section class="metric-grid" aria-label="Indicadores de hoje">
+  <article class="metric metric-dark"><span class="metric-label">Funcionários ativos</span><strong>{{ active_count }}</strong><span class="metric-foot">Na equipe autorizada</span></article>
+  <article class="metric"><span class="metric-label">Com registro hoje</span><strong>{{ registered_today }}</strong><span class="metric-foot">Jornadas iniciadas</span></article>
+  <article class="metric"><span class="metric-label">Jornadas incompletas</span><strong>{{ incomplete_today }}</strong><span class="metric-foot">Sem saída registrada</span></article>
+</section>
+<section class="dashboard-lower">
+  <div class="section-title"><div><span class="section-kicker">ACOMPANHAMENTO</span><h2>Atividade recente</h2></div><a class="text-link" href="{% url 'history' %}">Ver histórico <span aria-hidden="true">↗</span></a></div>
+  {% if registered_today %}<div class="activity-note"><span class="activity-dot" aria-hidden="true"></span><p>{{ registered_today }} jornada{{ registered_today|pluralize }} com registro hoje. Consulte o histórico para ver as marcações e os totais por funcionário.</p></div>{% else %}<div class="empty-state"><span class="empty-symbol" aria-hidden="true">—</span><h3>Nenhuma marcação hoje</h3><p>Os indicadores serão atualizados quando a equipe registrar o ponto.</p></div>{% endif %}
+</section>
+<section class="notice"><strong>Conferência de jornada</strong><p>Os totais apoiam a análise operacional e não substituem a validação do responsável ou a folha oficial de pagamento.</p></section>
+{% endblock %}
