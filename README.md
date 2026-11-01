@@ -61,6 +61,16 @@ Para outra hospedagem, configure `DEBUG=False`, `SECRET_KEY` aleatória, `ALLOWE
 
 Faça backups automatizados e teste a restauração do PostgreSQL. Defina política de retenção e acesso restrito antes de usar dados reais, especialmente coordenadas e dados pessoais (LGPD). Em ambiente de demonstração, use dados fictícios claramente identificados.
 
+## Reconhecimento facial
+
+O registro de ponto usa a câmera no navegador e envia a foto como `multipart/form-data` ao endpoint autenticado `POST /ponto/registrar-facial/` (`foto`, `kind` e campos de localização). O servidor compara o rosto apenas com a biometria do funcionário conectado e grava a marcação uma única vez. A imagem enviada não é armazenada; o vetor facial fica separado do cadastro em `EmployeeFaceProfile`.
+
+Para cadastrar ou atualizar a biometria, um administrador pode anexar uma foto ao criar o funcionário em `/funcionarios/novo/` ou usar a opção de biometria na lista `/funcionarios/`. A foto precisa mostrar exatamente um rosto e ter no máximo 5 MB. Sem biometria cadastrada, o funcionário não poderá registrar ponto.
+
+O reconhecimento requer `dlib-bin`, os modelos faciais, NumPy e Pillow; essas dependências estão listadas em `requirements.txt`. Se a instalação das dependências for interrompida, execute novamente `python -m pip install -r requirements.txt` no ambiente virtual ativo. Sem as dependências faciais, o sistema informa a indisponibilidade e não registra o ponto.
+
+Use `python manage.py runserver` para iniciar a aplicação. A câmera do navegador requer `localhost` ou HTTPS e autorização explícita do usuário.
+
 ## Testes e comandos úteis
 
 ```sh

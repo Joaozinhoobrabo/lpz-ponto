@@ -33,6 +33,7 @@
     {% block content %}{% endblock %}
   </main>
   <footer class="site-footer"><span>LPZ Montagens Industriais</span><span>Gestão de jornada · {{ now|date:"Y" }}</span></footer>
-  <script src="{% static 'ponto/app.js' %}" defer></script>
+  <script src="{% static 'ponto/csrf.js' %}?v=2" defer></script>
+  <script src="{% static 'ponto/app.js' %}?v=3" defer></script>
 </body>
 </html>

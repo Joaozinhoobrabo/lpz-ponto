@@ -1,9 +1,16 @@
 from django import forms
 
-from .models import Employee, PunchEvent
+from .models import Employee, EmployeeFaceProfile, PunchEvent
 
 
 class EmployeeForm(forms.ModelForm):
+    face_photo = forms.FileField(
+        required=False,
+        label="Foto para reconhecimento facial",
+        help_text="Opcional no cadastro; necessária para o funcionário registrar ponto pela câmera.",
+        widget=forms.FileInput(attrs={"accept": "image/*", "capture": "user"}),
+    )
+
     class Meta:
         model = Employee
         fields = [
@@ -17,6 +24,12 @@ class EmployeeForm(forms.ModelForm):
         self.fields["user"].queryset = self.fields["user"].queryset.filter(employee__isnull=True)
         for field in self.fields.values():
             field.widget.attrs["class"] = "field-input"
+
+    def clean_face_photo(self):
+        photo = self.cleaned_data.get("face_photo")
+        if photo and photo.size > 5 * 1024 * 1024:
+            raise forms.ValidationError("A foto deve ter no máximo 5 MB.")
+        return photo
 
 
 class PunchForm(forms.Form):

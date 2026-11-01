@@ -59,6 +59,25 @@ class Employee(models.Model):
         return self.full_name
 
 
+class EmployeeFaceProfile(models.Model):
+    employee = models.OneToOneField(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name="face_profile",
+        verbose_name="funcionário",
+    )
+    face_encoding = models.JSONField("vetor facial", default=list, help_text="Lista com 128 valores do encoding facial")
+    created_at = models.DateTimeField("criado em", auto_now_add=True)
+    updated_at = models.DateTimeField("atualizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "perfil facial"
+        verbose_name_plural = "perfis faciais"
+
+    def __str__(self):
+        return f"Perfil facial - {self.employee}"
+
+
 class PunchDay(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="punch_days")
     work_date = models.DateField("data")

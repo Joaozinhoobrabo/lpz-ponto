@@ -11,10 +11,11 @@
     <div class="journey-state state-{{ status_key }}"><span class="state-indicator" aria-hidden="true"></span><div><span class="section-kicker">STATUS DA JORNADA</span><h2 id="journey-title">{{ status_label }}</h2></div><span class="date-stamp">{{ now|date:"d/m/Y" }}</span></div>
     <div class="punch-actions">
       <h3>Registrar marcação</h3>
-      <p class="muted">A hora oficial é registrada pelo servidor no momento da confirmação.</p>
+      <p class="muted">A câmera valida seu rosto antes da marcação. O horário oficial é registrado pelo servidor.</p>
+      {% if not has_face_profile %}<p class="form-error" role="alert">Sua biometria ainda não foi cadastrada. Solicite ao administrador o cadastro da sua foto antes de registrar ponto.</p>{% endif %}
       <div class="action-grid">
         {% for kind, label in allowed %}
-        <form method="post" class="punch-form" data-punch-form data-require-location="{{ require_geolocation|yesno:'true,false' }}">
+        <form method="post" class="punch-form" data-punch-form data-require-location="{{ require_geolocation|yesno:'true,false' }}" data-face-endpoint="{% url 'facial_punch' %}">
           {% csrf_token %}<input type="hidden" name="kind" value="{{ kind }}">
           <input type="hidden" name="latitude"><input type="hidden" name="longitude"><input type="hidden" name="accuracy_meters">
           <input type="hidden" name="location_status" value="not_requested"><input type="hidden" name="location_reason">
@@ -25,7 +26,7 @@
         </form>
         {% empty %}<div class="finished-state"><strong>Jornada finalizada</strong><p>Suas marcações de hoje foram concluídas.</p></div>{% endfor %}
       </div>
-      <p class="location-note" id="location-message" aria-live="polite">A localização aproximada será solicitada somente ao registrar uma marcação. Ela ajuda a contextualizar o ponto em campo e não é acompanhada continuamente. Se não compartilhar, o sistema guardará apenas o motivo técnico quando disponível.</p>
+      <p class="location-note" id="location-message" aria-live="polite">A câmera e a localização aproximada só serão solicitadas ao registrar uma marcação. A imagem é usada para validar sua biometria e não é armazenada; apenas o vetor facial cadastrado é mantido.</p>
       <p class="form-error" id="location-error" role="alert" hidden></p>
     </div>
   </div>
@@ -33,4 +34,15 @@
     {% for event in events %}<div class="event-row"><span class="event-type">{{ event.get_kind_display }}</span><time>{{ event.recorded_at|date:"H:i" }}</time></div>{% empty %}<p class="muted">Nenhuma marcação registrada.</p>{% endfor %}
   </div></aside>
 </section>
+<dialog class="face-dialog" id="face-dialog" aria-labelledby="face-dialog-title">
+  <div class="face-dialog-content">
+    <h2 id="face-dialog-title">Validação facial</h2>
+    <p>Centralize seu rosto na câmera e pressione “Capturar e validar”.</p>
+    <video id="face-video" autoplay playsinline muted></video>
+    <div class="face-dialog-actions">
+      <button class="button button-quiet" type="button" data-face-cancel>Cancelar</button>
+      <button class="button button-primary" type="button" data-face-capture>Capturar e validar</button>
+    </div>
+  </div>
+</dialog>
 {% endblock %}
