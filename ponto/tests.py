@@ -29,6 +29,65 @@ class PunchFlowTests(TestCase):
     def punch(self, kind):
         return record_punch(self.employee.pk, kind, {"status": PunchEvent.LocationStatus.SKIPPED, "reason": "Não compartilhada"})
 
+    def test_employee_kiosk_requires_shared_employee_code(self):
+        response = self.client.get(reverse("kiosk"))
+        self.assertRedirects(response, reverse("login"))
+
+    @patch("ponto.views.extract_face_encoding", return_value=[0.1] * 128)
+    def test_employee_kiosk_recognizes_face_and_records_punch(self, extract):
+        EmployeeFaceProfile.objects.create(employee=self.employee, face_encoding=[0.1] * 128)
+        session = self.client.session
+        session["employee_kiosk_access"] = True
+        session.save()
+
+        response = self.client.post(reverse("kiosk_facial_punch"), {
+            "kind": PunchEvent.Kind.ENTRY,
+            "location_status": PunchEvent.LocationStatus.NOT_REQUESTED,
+            "foto": SimpleUploadedFile("face.jpg", b"test-image", content_type="image/jpeg"),
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["employee"], self.employee.full_name)
+        self.assertEqual(self.employee.punch_days.get().events.count(), 1)
+        extract.assert_called_once()
+
+    @patch("ponto.views.extract_face_encoding", return_value=[0.1] * 128)
+    def test_employee_kiosk_rejects_ambiguous_faces(self, extract):
+        EmployeeFaceProfile.objects.create(employee=self.employee, face_encoding=[0.1] * 128)
+        other_user = User.objects.create_user(username="bruno", password="test-password")
+        other_employee = Employee.objects.create(
+            user=other_user,
+            full_name="Bruno Souza",
+            enrollment="LPZ-009",
+            email="bruno@example.com",
+            position="Montador",
+            department=self.department,
+            hire_date=timezone.localdate(),
+            schedule=self.schedule,
+        )
+        EmployeeFaceProfile.objects.create(employee=other_employee, face_encoding=[0.1] * 128)
+        session = self.client.session
+        session["employee_kiosk_access"] = True
+        session.save()
+
+        response = self.client.post(reverse("kiosk_facial_punch"), {
+            "kind": PunchEvent.Kind.ENTRY,
+            "location_status": PunchEvent.LocationStatus.NOT_REQUESTED,
+            "foto": SimpleUploadedFile("face.jpg", b"test-image", content_type="image/jpeg"),
+        })
+
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(PunchEvent.objects.exists())
+
+    def test_dashboard_offers_employee_creation_to_admin(self):
+        admin = User.objects.create_superuser(username="admin", password="safe-test-password")
+        self.client.force_login(admin)
+
+        response = self.client.get(reverse("home"))
+
+        self.assertContains(response, reverse("employee_create"))
+        self.assertContains(response, "Cadastrar funcionário")
+
     def test_records_full_day_with_server_timestamps(self):
         entry = self.punch(PunchEvent.Kind.ENTRY)
         self.punch(PunchEvent.Kind.BREAK_START)
@@ -201,6 +260,7 @@ class PunchFlowTests(TestCase):
         self.assertEqual(self.employee.face_profile.face_encoding, [0.1] * 128)
         extract.assert_called_once()
 
+    @override_settings(DEVELOPER_ACCESS_CODE="dev-code-strong", EMPLOYEE_ACCESS_CODE="worker-code-strong")
     def test_custom_login_accepts_current_csrf_cookie_token(self):
         admin = User.objects.create_superuser(username="admin", password="test-password", email="admin@example.com")
         csrf_client = Client(enforce_csrf_checks=True)
@@ -211,15 +271,14 @@ class PunchFlowTests(TestCase):
             reverse("login"),
             {
                 "csrfmiddlewaretoken": csrf_client.cookies["csrftoken"].value,
-                "username": "admin",
-                "password": "test-password",
-                "next": "/",
+                "code": "dev-code-strong",
             },
             HTTP_HOST="localhost",
         )
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.wsgi_request.user.is_authenticated)
+        self.assertTrue(response.wsgi_request.user.is_superuser)
 
+    @override_settings(DEVELOPER_ACCESS_CODE="dev-code-strong", EMPLOYEE_ACCESS_CODE="worker-code-strong")
     def test_admin_login_accepts_current_csrf_cookie_token(self):
         User.objects.create_superuser(username="admin", password="test-password", email="admin@example.com")
         csrf_client = Client(enforce_csrf_checks=True)
@@ -230,8 +289,7 @@ class PunchFlowTests(TestCase):
             "/admin/login/",
             {
                 "csrfmiddlewaretoken": csrf_client.cookies["csrftoken"].value,
-                "username": "admin",
-                "password": "test-password",
+                "code": "dev-code-strong",
                 "next": "/admin/",
             },
             HTTP_HOST="localhost",
@@ -243,7 +301,8 @@ class PunchFlowTests(TestCase):
         self.client.login(username="ana", password="senha-segura-123")
         self.assertEqual(self.client.get(reverse("employee_list")).status_code, 403)
 
-    def test_admin_can_create_employee_with_unique_enrollment(self):
+    @patch("ponto.views.extract_face_encoding", return_value=[0.1] * 128)
+    def test_admin_can_create_employee_with_unique_enrollment(self, extract):
         admin = User.objects.create_superuser(username="admin", password="senha-segura-123", email="admin@example.com")
         new_user = User.objects.create_user(username="caio", password="senha-segura-123")
         self.client.force_login(admin)
@@ -257,9 +316,11 @@ class PunchFlowTests(TestCase):
             "hire_date": timezone.localdate().isoformat(),
             "schedule": self.schedule.pk,
             "is_active": "on",
+            "face_photo": SimpleUploadedFile("face.jpg", b"test-image", content_type="image/jpeg"),
         })
         self.assertRedirects(response, reverse("employee_list"))
         self.assertTrue(Employee.objects.filter(enrollment="LPZ-003", user=new_user).exists())
+        self.assertTrue(EmployeeFaceProfile.objects.filter(employee__enrollment="LPZ-003").exists())
 
     @patch("ponto.views.extract_face_encoding", side_effect=InvalidFaceImage("Nenhum rosto foi detectado."))
     def test_employee_creation_shows_face_validation_error_instead_of_crashing(self, extract):
@@ -283,7 +344,8 @@ class PunchFlowTests(TestCase):
         self.assertFalse(Employee.objects.filter(user=new_user).exists())
         extract.assert_called_once()
 
-    def test_employee_form_rejects_duplicate_enrollment(self):
+    @patch("ponto.views.extract_face_encoding", return_value=[0.1] * 128)
+    def test_employee_form_rejects_duplicate_enrollment(self, extract):
         admin = User.objects.create_superuser(username="admin", password="senha-segura-123", email="admin@example.com")
         new_user = User.objects.create_user(username="caio", password="senha-segura-123")
         self.client.force_login(admin)
@@ -297,6 +359,7 @@ class PunchFlowTests(TestCase):
             "hire_date": timezone.localdate().isoformat(),
             "schedule": self.schedule.pk,
             "is_active": "on",
+            "face_photo": SimpleUploadedFile("face.jpg", b"test-image", content_type="image/jpeg"),
         })
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Funcionário com este Matrícula já existe.")

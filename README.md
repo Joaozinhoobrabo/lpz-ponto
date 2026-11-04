@@ -22,11 +22,10 @@ python -m pip install -r requirements.txt
 cp .env.example .env
 set -a; source .env; set +a
 python manage.py migrate
-python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Acesse `http://127.0.0.1:8000/`. O primeiro administrador pode cadastrar equipes e jornadas em `/admin/`, criar usuários com o perfil apropriado e depois associar usuários e funcionários na área administrativa. O cadastro inicial de funcionários está disponível em `/funcionarios/novo/` para usuários com perfil Administrador.
+Acesse `http://127.0.0.1:8000/` e use os códigos `DEVELOPER_ACCESS_CODE` e `EMPLOYEE_ACCESS_CODE` definidos no ambiente. O código de desenvolvedor cria e autentica o superusuário `DEVELOPER_USERNAME` (padrão `admin`) e libera `/admin/`; o código de funcionário abre o totem `/totem/`. Em **Administração**, crie a conta do usuário e depois associe os dados e a foto facial em `/funcionarios/novo/`.
 
 O arquivo `.env` não é carregado automaticamente pelo Django. Exporte as variáveis no terminal antes de iniciar, por exemplo `export TIME_ZONE=America/Sao_Paulo`. Em desenvolvimento, os padrões permitem iniciar sem `.env`; nunca use a chave padrão em produção.
 
@@ -47,13 +46,7 @@ O arquivo `render.yaml` descreve um serviço web Django e um PostgreSQL. O Rende
 
 3. Entre em Render usando sua conta GitHub, escolha **New → Blueprint**, conecte o repositório e aplique o `render.yaml`.
 4. Aguarde o serviço web e o banco PostgreSQL ficarem disponíveis. O endereço público aparecerá no painel do serviço.
-5. No painel do serviço web, abra o **Shell** e crie o administrador da produção:
-
-	```sh
-	python manage.py createsuperuser --username admin
-	```
-
-	Crie as contas de produção com senhas próprias. Usuários e dados do SQLite local, inclusive os de demonstração, não são enviados ao PostgreSQL automaticamente.
+5. Configure `DEVELOPER_ACCESS_CODE` e `EMPLOYEE_ACCESS_CODE` nas variáveis privadas do serviço Render. Use códigos longos e diferentes; não os coloque no repositório. O primeiro cria/acessa o superusuário `admin`; o segundo libera o totem para registro de ponto por reconhecimento facial. Usuários e dados do SQLite local, inclusive os de demonstração, não são enviados ao PostgreSQL automaticamente.
 
 O Render pode exigir confirmação de cobrança ou plano pago, conforme os limites atuais da plataforma. Para uso real, configure backups do banco e política de retenção de dados; não use os usuários de demonstração em produção. A URL e o deploy não existem até concluir esses passos.
 
@@ -63,9 +56,9 @@ Faça backups automatizados e teste a restauração do PostgreSQL. Defina polít
 
 ## Reconhecimento facial
 
-O registro de ponto usa a câmera no navegador e envia a foto como `multipart/form-data` ao endpoint autenticado `POST /ponto/registrar-facial/` (`foto`, `kind` e campos de localização). O servidor compara o rosto apenas com a biometria do funcionário conectado e grava a marcação uma única vez. A imagem enviada não é armazenada; o vetor facial fica separado do cadastro em `EmployeeFaceProfile`.
+O totem `/totem/` usa a câmera e envia a foto como `multipart/form-data` ao endpoint `POST /totem/registrar-facial/` (`foto`, `kind` e campos de localização). O servidor compara o rosto com os perfis faciais dos funcionários ativos e só registra quando encontra uma correspondência única. A imagem enviada não é armazenada; o vetor facial fica separado do cadastro em `EmployeeFaceProfile`.
 
-Para cadastrar ou atualizar a biometria, um administrador pode anexar uma foto ao criar o funcionário em `/funcionarios/novo/` ou usar a opção de biometria na lista `/funcionarios/`. A foto precisa mostrar exatamente um rosto e ter no máximo 5 MB. Sem biometria cadastrada, o funcionário não poderá registrar ponto.
+Para cadastrar um funcionário, crie primeiro sua conta de acesso em **Administração → Usuários** e depois associe os dados do funcionário em `/funcionarios/novo/`, incluindo uma foto facial. A foto precisa mostrar exatamente um rosto e ter no máximo 5 MB. No totem, o código compartilhado libera a tela de marcação, e o rosto identifica a pessoa. A biometria é comparada com os perfis cadastrados; não há detecção de vivacidade, portanto fotos podem ser usadas para tentar falsificar uma identidade. Use somente em ambiente controlado e avalie uma solução com detecção de vivacidade e revisão de privacidade antes do uso real.
 
 O reconhecimento requer `dlib-bin`, os modelos faciais, NumPy e Pillow; essas dependências estão listadas em `requirements.txt`. Se a instalação das dependências for interrompida, execute novamente `python -m pip install -r requirements.txt` no ambiente virtual ativo. Sem as dependências faciais, o sistema informa a indisponibilidade e não registra o ponto.
 

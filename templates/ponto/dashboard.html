@@ -3,7 +3,10 @@
 {% block content %}
 <section class="page-heading">
   <div><span class="eyebrow">PAINEL DE OPERAÇÕES · {{ today|date:"d/m/Y" }}</span><h1>Visão geral</h1><p>Acompanhe a jornada da equipe em um só lugar.</p></div>
-  <a class="button button-primary" href="{% url 'history' %}">Consultar marcações <span aria-hidden="true">→</span></a>
+  <div class="dashboard-actions">
+    {% if user.role == 'admin' or user.is_superuser %}<a class="button button-primary" href="{% url 'employee_create' %}"><span aria-hidden="true">＋</span> Cadastrar funcionário</a>{% endif %}
+    <a class="button button-secondary" href="{% url 'history' %}">Consultar marcações <span aria-hidden="true">→</span></a>
+  </div>
 </section>
 <section class="metric-grid" aria-label="Indicadores de hoje">
   <article class="metric metric-dark"><span class="metric-label">Funcionários ativos</span><strong>{{ active_count }}</strong><span class="metric-foot">Na equipe autorizada</span></article>

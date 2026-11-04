@@ -25,3 +25,7 @@ services:
         value: America/Sao_Paulo
       - key: PUNCH_REQUIRE_GEOLOCATION
         value: "False"
+      - key: DEVELOPER_ACCESS_CODE
+        sync: false
+      - key: EMPLOYEE_ACCESS_CODE
+        sync: false

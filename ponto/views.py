@@ -102,6 +102,56 @@ def facial_punch(request):
         return JsonResponse({"detail": "Método não permitido."}, status=405)
 
     employee = _employee_for(request.user)
+    return _record_facial_punch(request, employee)
+
+
+def employee_kiosk(request):
+    if not request.session.get("employee_kiosk_access"):
+        return redirect("login")
+    if request.method != "GET":
+        return redirect("kiosk")
+    return render(request, "ponto/kiosk.html", {
+        "require_geolocation": settings.PUNCH_REQUIRE_GEOLOCATION,
+        "now": timezone.localtime(),
+        "punch_kinds": PunchEvent.Kind.choices,
+    })
+
+
+def employee_kiosk_logout(request):
+    if request.method != "POST":
+        return JsonResponse({"detail": "Método não permitido."}, status=405)
+    request.session.flush()
+    return redirect("login")
+
+
+def kiosk_facial_punch(request):
+    if request.method != "POST":
+        return JsonResponse({"detail": "Método não permitido."}, status=405)
+    if not request.session.get("employee_kiosk_access"):
+        return JsonResponse({"detail": "Digite o código de funcionário para continuar."}, status=403)
+
+    punch_data = _facial_punch_input(request)
+    if isinstance(punch_data, JsonResponse):
+        return punch_data
+    submitted_encoding, form = punch_data
+
+    profiles = EmployeeFaceProfile.objects.filter(
+        employee__is_active=True
+    ).select_related("employee")
+    matches = [
+        profile.employee
+        for profile in profiles
+        if face_matches(profile.face_encoding, submitted_encoding)
+    ]
+    if not matches:
+        return JsonResponse({"detail": "Rosto não reconhecido. Peça ao administrador para cadastrar sua foto."}, status=403)
+    if len(matches) > 1:
+        return JsonResponse({"detail": "Não foi possível distinguir os rostos cadastrados. Peça ao administrador para atualizar as fotos."}, status=409)
+
+    return _save_facial_punch(request, matches[0], form)
+
+
+def _record_facial_punch(request, employee):
     if not employee.is_active:
         return JsonResponse({"detail": "Funcionário inativo não pode registrar ponto."}, status=403)
 
@@ -112,6 +162,16 @@ def facial_punch(request):
             status=409,
         )
 
+    punch_data = _facial_punch_input(request)
+    if isinstance(punch_data, JsonResponse):
+        return punch_data
+    submitted_encoding, form = punch_data
+    if not face_matches(profile.face_encoding, submitted_encoding):
+        return JsonResponse({"detail": "Rosto não reconhecido para este usuário."}, status=403)
+    return _save_facial_punch(request, employee, form)
+
+
+def _facial_punch_input(request):
     photo = request.FILES.get("foto")
     if photo is None:
         return JsonResponse({"detail": "A imagem da câmera não foi recebida."}, status=400)
@@ -130,8 +190,6 @@ def facial_punch(request):
 
     try:
         submitted_encoding = extract_face_encoding(photo.read())
-        if not face_matches(profile.face_encoding, submitted_encoding):
-            return JsonResponse({"detail": "Rosto não reconhecido para este usuário."}, status=403)
     except FaceRecognitionUnavailable:
         return JsonResponse(
             {"detail": "Reconhecimento facial indisponível. Instale as dependências do arquivo requirements.txt."},
@@ -139,7 +197,10 @@ def facial_punch(request):
         )
     except InvalidFaceImage as error:
         return JsonResponse({"detail": str(error)}, status=400)
+    return submitted_encoding, form
 
+
+def _save_facial_punch(request, employee, form):
     location = {
         "latitude": form.cleaned_data["latitude"],
         "longitude": form.cleaned_data["longitude"],
@@ -159,6 +220,7 @@ def facial_punch(request):
     )
     return JsonResponse({
         "message": "Ponto registrado com sucesso.",
+        "employee": employee.full_name,
         "kind": event.kind,
         "recorded_at": timezone.localtime(event.recorded_at).isoformat(),
     })

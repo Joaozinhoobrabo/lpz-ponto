@@ -5,9 +5,9 @@ from .models import Employee, EmployeeFaceProfile, PunchEvent
 
 class EmployeeForm(forms.ModelForm):
     face_photo = forms.FileField(
-        required=False,
+        required=True,
         label="Foto para reconhecimento facial",
-        help_text="Opcional no cadastro; necessária para o funcionário registrar ponto pela câmera.",
+        help_text="Necessária para identificar o funcionário ao registrar ponto.",
         widget=forms.FileInput(attrs={"accept": "image/*", "capture": "user"}),
     )
 

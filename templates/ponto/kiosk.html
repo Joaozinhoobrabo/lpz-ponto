@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Registrar ponto{% endblock %}
+{% block content %}
+<section class="kiosk-panel" aria-labelledby="kiosk-title">
+  <div class="kiosk-header">
+    <span class="eyebrow">REGISTRO DE JORNADA · {{ now|date:"d/m/Y" }}</span>
+    <h1 id="kiosk-title">Olhe para a câmera</h1>
+    <p>Escolha sua marcação. O sistema identifica seu rosto e registra o horário pelo servidor.</p>
+  </div>
+  <div class="kiosk-actions">
+    {% for kind, label in punch_kinds %}
+    <form method="post" class="punch-form" data-punch-form data-require-location="{{ require_geolocation|yesno:'true,false' }}" data-face-endpoint="{% url 'kiosk_facial_punch' %}">
+      {% csrf_token %}
+      <input type="hidden" name="kind" value="{{ kind }}">
+      <input type="hidden" name="latitude"><input type="hidden" name="longitude"><input type="hidden" name="accuracy_meters">
+      <input type="hidden" name="location_status" value="not_requested"><input type="hidden" name="location_reason">
+      <button class="button button-primary kiosk-action" type="submit">{{ label }}</button>
+    </form>
+    {% endfor %}
+  </div>
+  <p class="location-note" id="location-message" aria-live="polite">A imagem é processada para reconhecer o funcionário e não é armazenada. Use somente uma marcação por vez.</p>
+  <p class="form-error" id="location-error" role="alert" hidden></p>
+  <form method="post" action="{% url 'kiosk_logout' %}" class="kiosk-exit">{% csrf_token %}<button class="button button-secondary" type="submit">Sair do modo funcionário</button></form>
+</section>
+<dialog class="face-dialog" id="face-dialog" aria-labelledby="face-dialog-title">
+  <div class="face-dialog-content">
+    <h2 id="face-dialog-title">Reconhecimento facial</h2>
+    <p>Centralize o rosto na câmera e pressione “Capturar”.</p>
+    <video id="face-video" autoplay playsinline muted></video>
+    <div class="face-dialog-actions">
+      <button class="button button-quiet" type="button" data-face-cancel>Cancelar</button>
+      <button class="button button-primary" type="button" data-face-capture>Capturar</button>
+    </div>
+  </div>
+</dialog>
+{% endblock %}
