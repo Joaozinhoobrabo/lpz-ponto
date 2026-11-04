@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Entrar{% endblock %}
 {% block content %}
 <section class="login-layout" aria-labelledby="login-title">
   <div class="login-intro">
-    <span class="eyebrow">LPZ MONTAGENS INDUSTRIAIS</span>
+    <img class="login-logo" src="{% static 'ponto/lpz-logo.jpg' %}" alt="LPZ Montagens Industriais">
     <h1 id="login-title">Jornada em dia.<br><span>Trabalho em movimento.</span></h1>
     <p>Acesse o controle de jornada da sua equipe.</p>
     <div class="intro-rule"><span></span><span></span><span></span></div>

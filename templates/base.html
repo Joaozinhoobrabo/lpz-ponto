@@ -6,14 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>{% block title %}LPZ Ponto{% endblock %} | LPZ Montagens Industriais</title>
-  <link rel="stylesheet" href="{% static 'ponto/app.css' %}">
+  <link rel="stylesheet" href="{% static 'ponto/app.css' %}?v=5">
 </head>
 <body>
   <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
   {% if user.is_authenticated %}
   <header class="topbar">
     <a class="brand" href="{% url 'home' %}" aria-label="LPZ Ponto, início">
-      <span class="brand-mark" aria-hidden="true">L</span>
+      <img class="brand-logo" src="{% static 'ponto/lpz-icon.jpg' %}" alt="">
       <span><strong>LPZ</strong><small>CONTROLE DE JORNADA</small></span>
     </a>
     <nav class="main-nav" aria-label="Navegação principal">
