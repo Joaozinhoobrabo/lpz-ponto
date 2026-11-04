@@ -13,7 +13,13 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 
 from accounts.models import User
 from .forms import EmployeeForm, PunchForm
-from .face_services import FaceRecognitionUnavailable, InvalidFaceImage, extract_face_encoding, face_matches
+from .face_services import (
+    FaceRecognitionUnavailable,
+    InvalidFaceImage,
+    extract_face_encoding,
+    face_matches,
+    prepare_face_photo_base64,
+)
 from .models import Employee, EmployeeFaceProfile, PunchDay, PunchEvent
 from .services import journey_status, record_punch, worked_duration
 
@@ -247,9 +253,12 @@ def employee_create(request):
     if form.is_valid():
         photo = form.cleaned_data["face_photo"]
         encoding = None
+        photo_base64 = None
         if photo:
             try:
-                encoding = extract_face_encoding(photo.read())
+                image_bytes = photo.read()
+                encoding = extract_face_encoding(image_bytes)
+                photo_base64 = prepare_face_photo_base64(image_bytes)
             except FaceRecognitionUnavailable:
                 form.add_error(
                     "face_photo",
@@ -264,7 +273,7 @@ def employee_create(request):
             if encoding is not None:
                 EmployeeFaceProfile.objects.update_or_create(
                     employee=employee,
-                    defaults={"face_encoding": encoding},
+                    defaults={"face_encoding": encoding, "foto_base64": photo_base64},
                 )
         messages.success(request, "Funcionário cadastrado.")
         return redirect("employee_list")
@@ -288,7 +297,9 @@ def employee_face_enroll(request, employee_id):
         return redirect("employee_list")
 
     try:
-        encoding = extract_face_encoding(photo.read())
+        image_bytes = photo.read()
+        encoding = extract_face_encoding(image_bytes)
+        photo_base64 = prepare_face_photo_base64(image_bytes)
     except FaceRecognitionUnavailable:
         messages.error(
             request,
@@ -301,7 +312,7 @@ def employee_face_enroll(request, employee_id):
 
     EmployeeFaceProfile.objects.update_or_create(
         employee=employee,
-        defaults={"face_encoding": encoding},
+        defaults={"face_encoding": encoding, "foto_base64": photo_base64},
     )
     messages.success(request, f"Biometria facial de {employee.full_name} cadastrada.")
     return redirect("employee_list")

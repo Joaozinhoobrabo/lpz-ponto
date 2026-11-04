@@ -1,5 +1,6 @@
-from io import BytesIO
+import base64
 from functools import lru_cache
+from io import BytesIO
 
 try:
     import dlib
@@ -54,7 +55,23 @@ def extract_face_encoding(image_bytes):
     return list(face_encoder.compute_face_descriptor(image_array, landmarks))
 
 
-def face_matches(registered_encoding, submitted_encoding, tolerance=0.6):
+def prepare_face_photo_base64(image_bytes):
+    if Image is None:
+        raise FaceRecognitionUnavailable
+
+    try:
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        image.thumbnail((480, 480))
+        output = BytesIO()
+        image.save(output, format="JPEG", quality=82, optimize=True)
+    except (UnidentifiedImageError, OSError, ValueError) as error:
+        raise InvalidFaceImage("O arquivo enviado não é uma imagem válida.") from error
+
+    encoded_image = base64.b64encode(output.getvalue()).decode("ascii")
+    return f"data:image/jpeg;base64,{encoded_image}"
+
+
+def face_matches(registered_encoding, submitted_encoding, tolerance=0.5):
     if np is None:
         raise FaceRecognitionUnavailable
     if len(registered_encoding) != 128 or len(submitted_encoding) != 128:

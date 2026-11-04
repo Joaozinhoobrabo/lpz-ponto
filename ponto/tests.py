@@ -1,3 +1,5 @@
+import base64
+from io import BytesIO
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -7,13 +9,49 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from PIL import Image
 
-from ponto.face_services import FaceRecognitionUnavailable, InvalidFaceImage
+from ponto.face_services import (
+    FaceRecognitionUnavailable,
+    InvalidFaceImage,
+    face_matches,
+    prepare_face_photo_base64,
+)
 from ponto.models import Department, Employee, EmployeeFaceProfile, PunchDay, PunchEvent, WorkSchedule
 from ponto.services import journey_status, record_punch, worked_duration
 
 
 User = get_user_model()
+
+
+class FacePhotoEncodingTests(TestCase):
+    def test_face_photo_is_stored_as_resized_base64_jpeg(self):
+        image_buffer = BytesIO()
+        Image.new("RGB", (800, 600), color="white").save(image_buffer, format="PNG")
+
+        encoded_photo = prepare_face_photo_base64(image_buffer.getvalue())
+
+        image_data = encoded_photo.split(",", 1)[1]
+        stored_image = Image.open(BytesIO(base64.b64decode(image_data)))
+        self.assertEqual(stored_image.format, "JPEG")
+        self.assertEqual(stored_image.size, (480, 360))
+        self.assertTrue(encoded_photo.startswith("data:image/jpeg;base64,"))
+
+
+class FaceMatchingTests(TestCase):
+    def test_face_matches_encoding_within_default_tolerance(self):
+        registered = [0.0] * 128
+        submitted = [0.0] * 128
+        submitted[0] = 0.5
+
+        self.assertTrue(face_matches(registered, submitted))
+
+    def test_face_rejects_encoding_outside_default_tolerance(self):
+        registered = [0.0] * 128
+        submitted = [0.0] * 128
+        submitted[0] = 0.51
+
+        self.assertFalse(face_matches(registered, submitted))
 
 
 class PunchFlowTests(TestCase):
@@ -228,8 +266,9 @@ class PunchFlowTests(TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertFalse(self.employee.punch_days.exists())
 
+    @patch("ponto.views.prepare_face_photo_base64", return_value="data:image/jpeg;base64,ZmFrZQ==")
     @patch("ponto.views.extract_face_encoding", return_value=[0.1] * 128)
-    def test_admin_can_enroll_face_for_an_existing_employee(self, extract):
+    def test_admin_can_enroll_face_for_an_existing_employee(self, extract, encode_photo):
         admin = User.objects.create_superuser(username="admin", password="test-password", email="admin@example.com")
         self.client.force_login(admin)
         response = self.client.post(
@@ -238,10 +277,16 @@ class PunchFlowTests(TestCase):
         )
         self.assertRedirects(response, reverse("employee_list"))
         self.assertEqual(self.employee.face_profile.face_encoding, [0.1] * 128)
+        self.assertEqual(
+            self.employee.face_profile.foto_base64,
+            "data:image/jpeg;base64,ZmFrZQ==",
+        )
         extract.assert_called_once()
+        encode_photo.assert_called_once_with(b"test-image")
 
+    @patch("ponto.views.prepare_face_photo_base64", return_value="data:image/jpeg;base64,ZmFrZQ==")
     @patch("ponto.views.extract_face_encoding", return_value=[0.1] * 128)
-    def test_admin_face_enrollment_accepts_current_csrf_cookie_token(self, extract):
+    def test_admin_face_enrollment_accepts_current_csrf_cookie_token(self, extract, encode_photo):
         admin = User.objects.create_superuser(username="admin", password="test-password", email="admin@example.com")
         csrf_client = Client(enforce_csrf_checks=True)
         csrf_client.force_login(admin)
@@ -258,7 +303,12 @@ class PunchFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.employee.face_profile.face_encoding, [0.1] * 128)
+        self.assertEqual(
+            self.employee.face_profile.foto_base64,
+            "data:image/jpeg;base64,ZmFrZQ==",
+        )
         extract.assert_called_once()
+        encode_photo.assert_called_once_with(b"test-image")
 
     @override_settings(DEVELOPER_ACCESS_CODE="dev-code-strong", EMPLOYEE_ACCESS_CODE="worker-code-strong")
     def test_custom_login_accepts_current_csrf_cookie_token(self):
@@ -301,8 +351,9 @@ class PunchFlowTests(TestCase):
         self.client.login(username="ana", password="senha-segura-123")
         self.assertEqual(self.client.get(reverse("employee_list")).status_code, 403)
 
+    @patch("ponto.views.prepare_face_photo_base64", return_value="data:image/jpeg;base64,ZmFrZQ==")
     @patch("ponto.views.extract_face_encoding", return_value=[0.1] * 128)
-    def test_admin_can_create_employee_with_unique_enrollment(self, extract):
+    def test_admin_can_create_employee_with_unique_enrollment(self, extract, encode_photo):
         admin = User.objects.create_superuser(username="admin", password="senha-segura-123", email="admin@example.com")
         new_user = User.objects.create_user(username="caio", password="senha-segura-123")
         self.client.force_login(admin)
@@ -321,6 +372,13 @@ class PunchFlowTests(TestCase):
         self.assertRedirects(response, reverse("employee_list"))
         self.assertTrue(Employee.objects.filter(enrollment="LPZ-003", user=new_user).exists())
         self.assertTrue(EmployeeFaceProfile.objects.filter(employee__enrollment="LPZ-003").exists())
+        self.assertEqual(
+            EmployeeFaceProfile.objects.get(employee__enrollment="LPZ-003").foto_base64,
+            "data:image/jpeg;base64,ZmFrZQ==",
+        )
+        employee_page = self.client.get(reverse("employee_list"))
+        self.assertContains(employee_page, 'src="data:image/jpeg;base64,ZmFrZQ=="')
+        encode_photo.assert_called_once_with(b"test-image")
 
     @patch("ponto.views.extract_face_encoding", side_effect=InvalidFaceImage("Nenhum rosto foi detectado."))
     def test_employee_creation_shows_face_validation_error_instead_of_crashing(self, extract):
@@ -344,8 +402,9 @@ class PunchFlowTests(TestCase):
         self.assertFalse(Employee.objects.filter(user=new_user).exists())
         extract.assert_called_once()
 
+    @patch("ponto.views.prepare_face_photo_base64", return_value="ZmFrZQ==")
     @patch("ponto.views.extract_face_encoding", return_value=[0.1] * 128)
-    def test_employee_form_rejects_duplicate_enrollment(self, extract):
+    def test_employee_form_rejects_duplicate_enrollment(self, extract, encode_photo):
         admin = User.objects.create_superuser(username="admin", password="senha-segura-123", email="admin@example.com")
         new_user = User.objects.create_user(username="caio", password="senha-segura-123")
         self.client.force_login(admin)

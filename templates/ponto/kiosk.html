@@ -18,7 +18,7 @@
     </form>
     {% endfor %}
   </div>
-  <p class="location-note" id="location-message" aria-live="polite">A imagem é processada para reconhecer o funcionário e não é armazenada. Use somente uma marcação por vez.</p>
+  <p class="location-note" id="location-message" aria-live="polite">A captura desta tentativa é processada para reconhecer o funcionário e não é armazenada; a foto usada no cadastro fica no perfil facial. Use somente uma marcação por vez.</p>
   <p class="form-error" id="location-error" role="alert" hidden></p>
   <form method="post" action="{% url 'kiosk_logout' %}" class="kiosk-exit">{% csrf_token %}<button class="button button-secondary" type="submit">Sair do modo funcionário</button></form>
 </section>

@@ -67,12 +67,21 @@ class EmployeeFaceProfile(models.Model):
         verbose_name="funcionário",
     )
     face_encoding = models.JSONField("vetor facial", default=list, help_text="Lista com 128 valores do encoding facial")
+    foto_base64 = models.TextField("foto facial em Base64", null=True, blank=True)
     created_at = models.DateTimeField("criado em", auto_now_add=True)
     updated_at = models.DateTimeField("atualizado em", auto_now=True)
 
     class Meta:
         verbose_name = "perfil facial"
         verbose_name_plural = "perfis faciais"
+
+    @property
+    def foto_data_uri(self):
+        if not self.foto_base64:
+            return ""
+        if self.foto_base64.startswith("data:"):
+            return self.foto_base64
+        return f"data:image/jpeg;base64,{self.foto_base64}"
 
     def __str__(self):
         return f"Perfil facial - {self.employee}"

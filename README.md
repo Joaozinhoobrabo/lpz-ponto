@@ -56,7 +56,7 @@ Faça backups automatizados e teste a restauração do PostgreSQL. Defina polít
 
 ## Reconhecimento facial
 
-O totem `/totem/` usa a câmera e envia a foto como `multipart/form-data` ao endpoint `POST /totem/registrar-facial/` (`foto`, `kind` e campos de localização). O servidor compara o rosto com os perfis faciais dos funcionários ativos e só registra quando encontra uma correspondência única. A imagem enviada não é armazenada; o vetor facial fica separado do cadastro em `EmployeeFaceProfile`.
+O totem `/totem/` usa a câmera e envia a foto como `multipart/form-data` ao endpoint `POST /totem/registrar-facial/` (`foto`, `kind` e campos de localização). O servidor compara o rosto com os perfis faciais dos funcionários ativos e só registra quando encontra uma correspondência única. As imagens capturadas para registrar ponto não são armazenadas. A foto enviada no cadastro é reduzida, convertida para JPEG e guardada em Base64 no campo `foto_base64`; o vetor facial fica no campo `face_encoding` do mesmo `EmployeeFaceProfile`. Administradores podem visualizar a foto na lista de funcionários.
 
 Para cadastrar um funcionário, crie primeiro sua conta de acesso em **Administração → Usuários** e depois associe os dados do funcionário em `/funcionarios/novo/`, incluindo uma foto facial. A foto precisa mostrar exatamente um rosto e ter no máximo 5 MB. No totem, o código compartilhado libera a tela de marcação, e o rosto identifica a pessoa. A biometria é comparada com os perfis cadastrados; não há detecção de vivacidade, portanto fotos podem ser usadas para tentar falsificar uma identidade. Use somente em ambiente controlado e avalie uma solução com detecção de vivacidade e revisão de privacidade antes do uso real.
 
